@@ -5,7 +5,7 @@ Is a comprehensive OSINT tool for looking up linked phone number information, us
 </p>
 
 <p align="center">
-<img src="assets/SearchPhone.png" title="SearchPhone" alt="SearchPhone" width="600"/>
+<img src="assets/Demo_SearchPhone.png" title="SearchPhone" alt="SearchPhone" width="600"/>
 </p>
 
 <p align="center">
@@ -21,6 +21,7 @@ Is a comprehensive OSINT tool for looking up linked phone number information, us
 - 💻 **Code Repository Search** - Finds phone numbers in GitHub code
 - 📝 **Social Media Search** - Searches Reddit for mentions
 - 📊 **Carrier Information** - Gets operator and location data via Numverify API
+- 🛡️ **Infostealer Intelligence** - Checks if a phone number has been compromised by info-stealer malware via [Hudson Rock Cavalier API](https://www.hudsonrock.com/) (free, no API key required)
 - 📄 **Automatic Reports** - Generates JSON and PDF reports automatically
 - 🚀 **Parallel Processing** - Searches multiple sources simultaneously for speed
 - 🎨 **Colorful Output** - Easy to read terminal output with colors
@@ -34,6 +35,7 @@ Get your API keys from the following services:
 | **Numverify** | Phone number validation & carrier info | [numverify.com](https://numverify.com/) | Free (100 requests/month) | 🔑 (Necessary) |
 | **SerpAPI** | Google Search results | [serpapi.com](https://serpapi.com/) | Free (250 searches/month) | 🔑 (Necessary) |
 | **GitHub Token** | GitHub code search | [GitHub Settings](https://github.com/settings/tokens) | Free (5000 requests/hour) | 🔑 (Necessary) |
+| **Hudson Rock** | Infostealer intelligence | [cavalier.hudsonrock.com](https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-username?username=+19777334049) | Free (No API key required) | ❌ No key needed |
 
 ### Configure your API keys:
 
@@ -71,11 +73,11 @@ GITHUB_TOKEN=your_github_token_here
 
 # Example
 <p align="center">
-<img src="assets/SearchPhone_demo1.png" title="SearchPhone" alt="SearchPhone" width="600"/>
+<img src="assets/Demo_SearchPhone.png" title="SearchPhone" alt="SearchPhone" width="600"/>
 </p>
 
 <p align="center">
-<img src="assets/SearchPhone_demo2.png" title="SearchPhone" alt="SearchPhone" width="600"/>
+<img src="assets/Demo_SearchPhone_Update.png" title="SearchPhone" alt="SearchPhone" width="600"/>
 </p>
 
 > **The project is open to partners.**

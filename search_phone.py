@@ -60,6 +60,7 @@ class PhoneOSINT:
         self.results = {
             'phone_info': {},
             'numverify': None,
+            'hudsonrock': None,
             'google': [],
             'github': [],
             'reddit': [],
@@ -116,31 +117,109 @@ class PhoneOSINT:
             print(f"{Fore.RED}❌ Numverify: Error - {e}")
         return None
     
+    def check_hudsonrock(self, phone_number):
+        """
+        Check if the phone number appears in Hudson Rock's infostealer database.
+        API is free and does not require an API key.
+        """
+        try:
+            # Limpiar el número: eliminar espacios y el signo '+'
+            clean_number = phone_number.replace(' ', '').replace('+', '')
+            # La API espera el número con el signo '+' incluido
+            formatted_number = f"+{clean_number}" if not phone_number.startswith('+') else phone_number
+            
+            url = f"https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-username"
+            params = {'username': formatted_number}
+            
+            response = requests.get(url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                # Verificar si hay datos de stealer
+                if data.get('stealers') and len(data['stealers']) > 0:
+                    return {
+                        'found': True,
+                        'message': data.get('message', ''),
+                        'stealers': data['stealers'],
+                        'total_corporate_services': data.get('total_corporate_services', 0),
+                        'total_user_services': data.get('total_user_services', 0)
+                    }
+                else:
+                    return {
+                        'found': False,
+                        'message': 'No se encontraron registros en infostealer'
+                    }
+            elif response.status_code == 404:
+                return {'found': False, 'message': 'Número no encontrado en la base de datos'}
+            else:
+                print(f"{Fore.YELLOW}⚠️ Hudson Rock: Error {response.status_code}")
+                return None
+                
+        except Exception as e:
+            print(f"{Fore.RED}❌ Hudson Rock: Error - {e}")
+            return None
+    
     def search_google(self, phone_number):
-        """Search Google using SerpAPI"""
+        """Search Google using SerpAPI - Búsqueda global sin restricciones de región"""
         if not self.api_keys['serpapi']:
             return []
-            
+
         try:
+            # Limpiar número para búsqueda
+            clean_number = phone_number.replace(' ', '').replace('+', '').replace('-', '')
+            # Formato E.164 (con +)
+            e164_number = f"+{clean_number}" if not phone_number.startswith('+') else phone_number
+
+            # Construir consulta: buscar el número en todos los formatos posibles
+            query = f'"{phone_number}" OR "{e164_number}" OR "{clean_number}" OR "{phone_number.replace(" ", "")}"'
+
             url = "https://serpapi.com/search"
             params = {
-                'q': f'"{phone_number}" OR "{phone_number}" phone OR contacto OR celular',
+                'q': query,
                 'api_key': self.api_keys['serpapi'],
                 'num': 20,
-                'gl': 'pe',
-                'hl': 'es'
+                'hl': 'en'  # Idioma en inglés para resultados internacionales
             }
             response = requests.get(url, params=params, timeout=15)
-            
+
             if response.status_code == 200:
                 data = response.json()
                 results = []
                 for item in data.get('organic_results', []):
-                    results.append({
-                        'title': item.get('title', 'Sin título'),
-                        'link': item.get('link', ''),
-                        'snippet': item.get('snippet', '')
-                    })
+                    title = item.get('title', '')
+                    link = item.get('link', '')
+                    snippet = item.get('snippet', '')
+
+                    # Usamos varios formatos para aumentar la precisión
+                    found = False
+                    # Lista de formatos a buscar
+                    formats = [
+                        phone_number,           # Original
+                        e164_number,            # Con +
+                        clean_number,           # Sin + ni espacios
+                        phone_number.replace(' ', ''),  # Sin espacios
+                        f"+{clean_number}",     # + sin espacios
+                    ]
+                    # Si el número tiene guiones, también buscamos sin guiones
+                    if '-' in phone_number:
+                        formats.append(phone_number.replace('-', ''))
+                    # Si tiene espacios, también buscamos con diferentes separaciones
+                    if ' ' in phone_number:
+                        parts = phone_number.split()
+                        formats.append(''.join(parts))  # Sin espacios
+                        formats.append(' '.join(parts))  # Con espacios originales
+
+                    for fmt in formats:
+                        if fmt in title or fmt in link or fmt in snippet:
+                            found = True
+                            break
+
+                    if found:
+                        results.append({
+                            'title': title,
+                            'link': link,
+                            'snippet': snippet
+                        })
                 return results
         except Exception as e:
             print(f"{Fore.RED}❌ Google: Error - {e}")
@@ -234,20 +313,17 @@ class PhoneOSINT:
         print(f"{Fore.GREEN}📱 ANALIZANDO NÚMERO: {number}")
         print(f"{Fore.CYAN}{'='*60}\n")
         
-        # Basic validation
+        # Intentar validar el número (no bloqueante)
         phone_info = self.validate_phone(number, region)
-        if not phone_info:
-            print(f"{Fore.RED}❌ Número de teléfono inválido")
-            return
-        
-        self.results['phone_info'] = phone_info
-        
-        # Display basic info
-        print(f"{Fore.GREEN}✅ Información básica:")
-        print(f"{Fore.YELLOW}  📞 Internacional: {Fore.WHITE}{phone_info['international']}")
-        print(f"{Fore.YELLOW}  🌍 País: {Fore.WHITE}{phone_info['country']}")
-        print(f"{Fore.YELLOW}  📡 Operador: {Fore.WHITE}{phone_info['carrier']}")
-        print(f"{Fore.YELLOW}  🕐 Zona Horaria: {Fore.WHITE}{', '.join(phone_info['timezone'])}")
+        if phone_info:
+            self.results['phone_info'] = phone_info
+            print(f"{Fore.GREEN}✅ Información básica:")
+            print(f"{Fore.YELLOW}  📞 Internacional: {Fore.WHITE}{phone_info['international']}")
+            print(f"{Fore.YELLOW}  🌍 País: {Fore.WHITE}{phone_info['country']}")
+            print(f"{Fore.YELLOW}  📡 Operador: {Fore.WHITE}{phone_info['carrier']}")
+            print(f"{Fore.YELLOW}  🕐 Zona Horaria: {Fore.WHITE}{', '.join(phone_info['timezone'])}")
+        else:
+            print(f"{Fore.YELLOW}⚠️ Número no válido según estándares internacionales. Se continuará con la búsqueda en Hudson Rock y otras fuentes.")
         
         # Parallel API calls - SOLO LAS QUE FUNCIONAN
         print(f"\n{Fore.GREEN}🔍 Verificando en APIs...")
@@ -255,6 +331,7 @@ class PhoneOSINT:
         with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
             futures = {
                 executor.submit(self.check_numverify, number, region): 'numverify',
+                executor.submit(self.check_hudsonrock, number): 'hudsonrock',
                 executor.submit(self.search_google, number): 'google',
                 executor.submit(self.search_duckduckgo, number): 'duckduckgo',
                 executor.submit(self.search_reddit, number): 'reddit',
@@ -272,6 +349,15 @@ class PhoneOSINT:
                             print(f"{Fore.GREEN}✅ Numverify: OK")
                         else:
                             print(f"{Fore.YELLOW}⚠️ Numverify: Sin datos")
+
+                    elif source == 'hudsonrock':  # <-- NUEVO
+                        if result and result.get('found'):
+                            self.results['hudsonrock'] = result
+                            print(f"{Fore.GREEN}✅ Hudson Rock: {len(result.get('stealers', []))} infecciones encontradas")
+                        elif result:
+                            print(f"{Fore.YELLOW}⚠️ Hudson Rock: Sin registros")
+                        else:
+                            print(f"{Fore.YELLOW}⚠️ Hudson Rock: Sin datos")
                             
                     else:
                         if result and len(result) > 0:
@@ -303,6 +389,24 @@ class PhoneOSINT:
                 print(f"{Fore.WHITE}  Tipo: {nv['line_type']}")
             if nv.get('country'):
                 print(f"{Fore.WHITE}  País: {nv['country']}")
+            print()
+
+        # Hudson Rock
+        if self.results.get('hudsonrock') and self.results['hudsonrock'].get('found'):
+            print(f"{Fore.YELLOW}🛡️ HUDSON ROCK (Infostealer Intelligence):")
+            hr = self.results['hudsonrock']
+            print(f"{Fore.WHITE}  Estado: {Fore.RED}⚠️ COMPROMETIDO")
+            print(f"{Fore.WHITE}  Servicios corporativos: {hr.get('total_corporate_services', 0)}")
+            print(f"{Fore.WHITE}  Servicios personales: {hr.get('total_user_services', 0)}")
+            
+            for i, stealer in enumerate(hr.get('stealers', [])[:3], 1):
+                print(f"{Fore.WHITE}  [{i}] Stealer: {stealer.get('stealer_family', 'Desconocido')}")
+                print(f"      Fecha: {stealer.get('date_compromised', '')[:10]}")
+                print(f"      Equipo: {stealer.get('computer_name', 'Desconocido')}")
+                print(f"      SO: {stealer.get('operating_system', 'Desconocido')}")
+                if stealer.get('top_logins'):
+                    logins = ', '.join(stealer['top_logins'][:3])
+                    print(f"      Logins filtrados: {logins}")
             print()
         
         # Google
@@ -352,17 +456,25 @@ class PhoneOSINT:
         print(f"{Fore.GREEN}📊 RESUMEN:")
         
         total_found = 0
+# Primero, resultados de búsquedas
         services = [
             ('Google', len(self.results.get('google', []))),
             ('Reddit', len(self.results.get('reddit', []))),
             ('GitHub', len(self.results.get('github', []))),
             ('DuckDuckGo', len(self.results.get('duckduckgo', [])))
         ]
-        
+
         for name, count in services:
             if count > 0:
                 print(f"{Fore.WHITE}  {name}: {count} resultados")
                 total_found += count
+
+        # Luego, Hudson Rock (si tiene datos)
+        if self.results.get('hudsonrock') and self.results['hudsonrock'].get('found'):
+            hr = self.results['hudsonrock']
+            infect_count = len(hr.get('stealers', []))
+            print(f"{Fore.WHITE}  Hudson Rock: {infect_count} infecciones encontradas")
+            total_found += infect_count
         
         if total_found == 0:
             print(f"{Fore.YELLOW}  No se encontraron resultados en ninguna fuente")
@@ -478,6 +590,25 @@ class PhoneOSINT:
                     pdf.cell(190, 6, f"  Tipo: {self.clean_text(nv['line_type'])}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
                 pdf.ln(5)
 
+            # Hudson Rock
+            if self.results.get('hudsonrock') and self.results['hudsonrock'].get('found'):
+                pdf.set_font("Helvetica", "B", 12)
+                pdf.cell(190, 8, "HUDSON ROCK (Infostealer Intelligence)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.set_font("Helvetica", "", 10)
+                hr = self.results['hudsonrock']
+                pdf.cell(190, 6, f"  Estado: COMPROMETIDO", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.cell(190, 6, f"  Servicios corporativos: {hr.get('total_corporate_services', 0)}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.cell(190, 6, f"  Servicios personales: {hr.get('total_user_services', 0)}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                
+                for i, stealer in enumerate(hr.get('stealers', [])[:3], 1):
+                    pdf.cell(190, 6, f"  [{i}] Stealer: {self.clean_text(stealer.get('stealer_family', 'Desconocido'))}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                    pdf.cell(190, 6, f"      Fecha: {stealer.get('date_compromised', '')[:10]}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                    pdf.cell(190, 6, f"      Equipo: {self.clean_text(stealer.get('computer_name', 'Desconocido'))}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                    if stealer.get('top_logins'):
+                        logins = ', '.join(stealer['top_logins'][:3])
+                        pdf.cell(190, 6, f"      Logins filtrados: {self.clean_text(logins)}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.ln(5)
+
             # Google
             if self.results.get('google'):
                 pdf.set_font("Helvetica", "B", 12)
@@ -548,6 +679,13 @@ class PhoneOSINT:
                 if count > 0:
                     pdf.cell(190, 6, f"  {source.capitalize()}: {count} resultados", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
                     total_found += count
+
+            # Añadir Hudson Rock al resumen del PDF
+            if self.results.get('hudsonrock') and self.results['hudsonrock'].get('found'):
+                hr = self.results['hudsonrock']
+                infect_count = len(hr.get('stealers', []))
+                pdf.cell(190, 6, f"  Hudson Rock: {infect_count} infecciones encontradas", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                total_found += infect_count
 
             pdf.cell(190, 6, f"\n  TOTAL DE RESULTADOS: {total_found}", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
