@@ -20,8 +20,8 @@ try:
     PDF_AVAILABLE = True
 except ImportError:
     PDF_AVAILABLE = False
-    print(f"{Fore.YELLOW}⚠️ fpdf no instalado. Los PDFs no se generarán.")
-    print(f"{Fore.WHITE}   Instalar con: pip install fpdf")
+    print(f"{Fore.YELLOW}⚠️ fpdf2 no instalado. Los PDFs no se generarán.")
+    print(f"{Fore.WHITE}   Instalar con: pip install fpdf2")
 
 # Load environment variables
 load_dotenv()
