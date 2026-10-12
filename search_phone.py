@@ -4,6 +4,7 @@
 import os
 import re
 import json
+import sys
 import time
 import requests
 from colorama import Fore, init, Style
@@ -25,6 +26,13 @@ except ImportError:
 
 # Load environment variables
 load_dotenv()
+
+# Ensure console streams can handle UTF-8 output on Windows and other terminals
+for stream in (sys.stdout, sys.stderr):
+    try:
+        stream.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, ValueError):
+        pass
 
 # Initialize colorama
 init(autoreset=True)
